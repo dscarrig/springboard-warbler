@@ -224,8 +224,11 @@ def stop_following(follow_id):
 def add_like(message_id):
     """Add a like to a post."""
 
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+        
     like = Likes(user_id = g.user.id, message_id = message_id)
-
 
     if Likes.query.filter(Likes.message_id == message_id).count() == 0:
         db.session.add(like)    
@@ -317,7 +320,7 @@ def messages_add():
 def messages_show(message_id):
     """Show a message."""
 
-    msg = Message.query.get(message_id)
+    msg = Message.query.get_or_404(message_id)
     return render_template('messages/show.html', message=msg)
 
 
@@ -325,11 +328,12 @@ def messages_show(message_id):
 def messages_destroy(message_id):
     """Delete a message."""
 
-    if not g.user:
+    msg = Message.query.get(message_id)
+
+    if not g.user or g.user.id != msg.user_id:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    msg = Message.query.get(message_id)
     db.session.delete(msg)
     db.session.commit()
 
