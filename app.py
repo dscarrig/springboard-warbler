@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
-from models import db, connect_db, User, Message
+from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -179,6 +179,17 @@ def users_followers(user_id):
     user = User.query.get_or_404(user_id)
     return render_template('users/followers.html', user=user)
 
+@app.route('/users/<int:user_id>/liked_messages')
+def users_liked_messages(user_id):
+    """Show list of followers of this user."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/liked-messages.html', user=user)
+
 
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
 def add_follow(follow_id):
@@ -209,12 +220,55 @@ def stop_following(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
+@app.route('/users/add_like/<int:message_id>', methods=["GET", 'POST'])
+def add_like(message_id):
+    """Add a like to a post."""
+
+    like = Likes(user_id = g.user.id, message_id = message_id)
+
+
+    if Likes.query.filter(Likes.message_id == message_id).count() == 0:
+        db.session.add(like)    
+    else:
+        to_delete = Likes.query.filter(Likes.message_id == message_id).first()
+        db.session.delete(to_delete)
+
+    db.session.commit()
+
+    return redirect("/")
+
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
     """Update profile for current user."""
 
-    # IMPLEMENT THIS
+    form = UserEditForm()
+
+    if form.validate_on_submit():
+        username = g.user.username
+        password = form.password.data
+
+        if User.authenticate(username, password):
+            g.user.username = form.username.data
+            g.user.email = form.email.data
+            g.user.image_url = form.image_url.data
+            g.user.header_image_url = form.header_image_url.data
+            g.user.bio = form.bio.data
+
+            db.session.commit()
+
+            return redirect(f"/users/{g.user.id}")
+        else:
+            flash("Incorrect Password", 'danger')
+
+    else:
+        form.username.data = g.user.username
+        form.email.data = g.user.email
+        form.image_url.data = g.user.image_url
+        form.header_image_url.data = g.user.header_image_url
+        form.bio.data = g.user.bio
+        
+    return render_template('users/edit.html', form=form)
 
 
 @app.route('/users/delete', methods=["POST"])
@@ -295,13 +349,26 @@ def homepage():
     """
 
     if g.user:
+        following = g.user.following
+        following_ids = []
+
+        for f in following:
+            following_ids.append(f.id)
+
         messages = (Message
                     .query
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
 
-        return render_template('home.html', messages=messages)
+        likes = Likes.query.filter(Likes.user_id == g.user.id)
+
+        likes_ids = []
+
+        for like in likes:
+            likes_ids.append(like.message_id)
+
+        return render_template('home.html', messages=messages, likes = likes_ids, user = g.user, following = following_ids)
 
     else:
         return render_template('home-anon.html')

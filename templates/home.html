@@ -41,6 +41,7 @@
     <div class="col-lg-6 col-md-8 col-sm-12">
       <ul class="list-group" id="messages">
         {% for msg in messages %}
+        {% if msg.user_id in following or msg.user_id == user.id %}
           <li class="list-group-item">
             <a href="/messages/{{ msg.id  }}" class="message-link"/>
             <a href="/users/{{ msg.user.id }}">
@@ -55,12 +56,14 @@
               <button class="
                 btn 
                 btn-sm 
-                {{'btn-primary' if msg.id in likes else 'btn-secondary'}}"
+                {{'btn-primary' if msg.id in likes else 'btn-secondary'}}
+                {{'visible' if msg.user_id != user.id else 'invisible'}}"
               >
                 <i class="fa fa-thumbs-up"></i> 
               </button>
             </form>
           </li>
+        {% endif %}
         {% endfor %}
       </ul>
     </div>

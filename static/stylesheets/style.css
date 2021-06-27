@@ -173,6 +173,7 @@ nav + .container {
 #header-image {
   margin: 0 auto 15px;
   width: 100%;
+  max-height: 400px;
 }
 
 #profile-avatar {
